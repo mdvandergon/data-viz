@@ -13,6 +13,7 @@ library(ggplot2)
 
 acc2014 = read_sas('accident.sas7bdat')
 acc2015 = read_csv('accident.csv')
+fips = read_csv('fips.csv')
 ls()
 
 acc2014 <- acc2014 %>%
@@ -32,3 +33,14 @@ acc <- bind_rows(
 
 count(acc, RUR_URB)
 # there are 30000 missing because RUR_URB was introduced in 2015, not in 2014 data.
+
+glimpse(fips)
+
+# Convert the State and County variables to join to FIPS dataset
+acc <- acc %>% mutate(
+  STATE = str_pad(as.character(STATE), 2, "left", pad=0),
+  COUNTY = str_pad(as.character(COUNTY), 3, "left", pad=0)
+)
+acc <- plyr::rename(acc, c(STATE = "StateFIPSCode", COUNTY = "CountyFIPSCode"))
+acc <- left_join(acc, fips, by=c("StateFIPSCode", "CountyFIPSCode"))
+
