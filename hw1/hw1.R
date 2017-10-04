@@ -44,3 +44,20 @@ acc <- acc %>% mutate(
 acc <- plyr::rename(acc, c(STATE = "StateFIPSCode", COUNTY = "CountyFIPSCode"))
 acc <- left_join(acc, fips, by=c("StateFIPSCode", "CountyFIPSCode"))
 
+# Exploratory Analysis
+#Create total fatalities tibble
+agg <- acc %>% 
+  group_by(StateName, YEAR, add=TRUE) %>%
+  summarise(TOTAL = sum(FATALS)) %>%
+  spread(StateName, YEAR)
+
+# rewritten
+agg <- acc %>% 
+  group_by(StateName, YEAR, add=TRUE) %>%
+  summarise(TOTAL = sum(FATALS)) %>%
+  spread(YEAR, TOTAL) %>%
+  rename("Year2014" = "2014", "Year2015" = "2015") %>% 
+  mutate(Diff_Percent = Year2015/Year2014 - 1) %>%
+  arrange(desc(Diff_Percent)) %>%
+  filter(Diff_Percent > .15) %>%
+  drop_na()
