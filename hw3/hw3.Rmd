@@ -13,7 +13,7 @@ library(lubridate)
 library(extrafont)
 
 # ggplot theme
-font_import(pattern = "AppleGothic", prompt = FALSE)
+font_import(pattern = "NotoSans", prompt = FALSE)
 
 ###################
 ## theme
@@ -41,8 +41,10 @@ scale_color_continuous_mark <- function(){
 
 theme_mark <- function(base_size=12, font=NA){
   
-  txt <- element_text(size = base_size, color = "black", family="AppleGothic")
-  bold_txt <- element_text(size = base_size+2, color = "black", family="AppleGothic")
+  small_txt <- element_text(size = base_size*0.8, color = "#333333", family="Noto Sans")
+  txt <- element_text(size = base_size, color = "#333333", family="Noto Sans")
+  italic_txt <- element_text(size = base_size*0.8, color = "#333333", family="NotoSans-Italic")
+  bold_txt <- element_text(size = base_size+2, color = "#333333", family="NotoSans-Bold")
   
   theme_minimal(base_size = base_size, base_family = font) +
     theme(
@@ -51,9 +53,10 @@ theme_mark <- function(base_size=12, font=NA){
       strip.background = element_blank(), 
       ########### text basics
       text = txt, 
-      plot.title = bold_txt, 
+      plot.title = bold_txt,
+      plot.caption = italic_txt, 
       axis.title = txt, 
-      axis.text = txt, 
+      axis.text = small_txt, 
       legend.text = txt ) +
     
     ############## axis lines
@@ -61,14 +64,20 @@ theme_mark <- function(base_size=12, font=NA){
       axis.line.y = element_line(color = "#333333", size = 0.8, linetype = "solid"),
       axis.line.x = element_line(color = "#333333", size = 0.8, linetype = "solid"),
       
-      ### legend  top and no title!
-      legend.position = "top", 
-      legend.title = element_blank(),
+      axis.ticks.x =  element_line(color = "#333333", size = 0.2, linetype = "solid"),
+      axis.ticks.y =  element_line(color = "#333333", size = 0.2, linetype = "solid"),
+      
+      panel.grid.major = element_line(color = "#f0f0f0", size = 0.2, linetype = "solid"),
+      panel.grid.minor = element_line(color = "#f0f0f0", size = 0.05, linetype = "solid"),
+      panel.border = element_blank(),
+      
+      legend.position = "right", 
+      # legend.title = element_blank(),
       legend.key = element_rect(fill = "#f8f8f8", color = "#f8f8f8"),
       legend.background = element_rect( fill = "#f8f8f8",color = "#f8f8f8", size = 0.5, linetype = "solid"),
       
       ## background
-      plot.background = element_rect(fill = "#f0f0f0", color = "#f0f0f0",size = 0.5)
+      plot.background = element_rect(fill = "#f8f8f8",size = 0.5)
       )
 }
 
@@ -151,55 +160,61 @@ Plotting against the real rate, we can observe how well Taylor tracks with the t
 
 ``` {r rates, echo=FALSE}
 rates <- ggplot(data = econ, aes(x=DATE)) +
-      geom_line(aes(y=TAYLORRATE), color = "#FF3E23", size=2) +
-      geom_line(aes(y=FEDFUNDS), color = "#333333") +
+      geom_line(aes(y=TAYLORRATE), size=1, color="1") +
+      geom_line(aes(y=FEDFUNDS), color="2") +
+      scale_color_discrete_mark() +
       labs(y = "Interest Rate (%)",
            x = "Date",
+           color= "Taylor Rate",
            title="The Taylor Rule loosely tracks with the Real Fed Funds Rate",
-           subtitle="Simplified Taylor Rule interest rate against real fed funds rate (source: FRB St. Louis)")
+           subtitle="Simplified Taylor Rule interest rate against real fed funds rate",
+           caption="(source: FRB St. Louis)")
 rates
 ```
 
 Now, we can observe this difference over time...
 
-``` {r }
+``` {r difference_in_rates}
 diff <- ggplot(data = econ, aes(x=DATE)) +
       geom_point(aes(y=DIFF), color= "#FF8440") +
       geom_line(aes(y=FEDFUNDS), color= "#DDDDDD") +
       geom_hline(yintercept = 0) + 
-      labs(y = "Diff (TR - FF)",
+      labs(y = "Difference (Interest Rate)",
            x = "Date",
            title="The Difference between the Two Rates has been Quite Large",
-           subtitle="TR - FF in orange, with FF in grey (source: FRB St. Louis)")
+           subtitle="TR - FF in orange, with FF in grey",
+           caption="source: FRB St. Louis")
 diff
 ```
 
 ### Diagnosing the difference
 How might the Rates differ when changes in the economy are large? We have two metrics to review: GDP and inflation. Let's review GDP first.
 
-``` {r }
+``` {r gdp_change}
 diff <- ggplot(data = econ, aes(y=DIFF)) +
-      geom_point(aes(x=GDPDEF_PC1, color=row_number(DATE)), show.legend = FALSE) + 
+      geom_point(aes(x=GDPDEF_PC1, color=DATE)) + 
       scale_color_continuous_mark() +
       geom_hline(yintercept = 0) + 
       labs(y = "Diff (TR - FF)",
            x = "%  Change of GDP",
-           fill="Time to Present",
-           title="Recently, Taylor Rule has Over Estimated and GDP has been less Volatile",
-           subtitle="Difference in TR and Fed Funds over time (yellow is more recent) (source: FRB St. Louis)")
+           color="Time to Present",
+           title="Recently, Taylor Rule  Over Estimated and GDP Change Lessened",
+           subtitle="Difference in TR and Fed Funds over time (yellow is more recent)",
+           caption="source: FRB St. Louis")
 diff
 ```
 ### Changes in Inflation: a potential rule improvement
 
 Core CPI (no food or oil prices) can be used to recognize periods of inflation and deflation. Significant increases in the CPI within a short time frame might indicate a period of inflation, and significant decreases in CPI within a short time frame might indicate a period of deflation. Reviewing the graph below, we can observe how a 2% constant inflation is a simplifing assumption. With better inflation measures, perhaps the simple Taylor can be improved.
 
-```{r pp, echo=FALSE}
+```{r pp, echo=FALSE, message=FALSE}
 pp <- ggplot(pp_recent, aes(x=date, y=indexCPI, group=1)) +
   geom_line(colour = "#f45f09")+
   stat_smooth(span=0.5, color="#DDDDDD") +
   labs(x="Date", 
        y="CPI",
-       title="Consumer Price Index: 2013 to 2015",
-       subtitle="(source:Billion Prices)")
+       title="CPI Growth is nonlinear",
+       subtitle="Smoothened monthly changes in the CPI",
+       caption="source: Billion Prices")
 pp
 ```
