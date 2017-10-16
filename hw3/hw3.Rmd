@@ -2,21 +2,18 @@
 title: "hw3"
 author: "Mark Vandergon"
 date: "10/14/2017"
-output: html_document
+output:
+  html_document: default
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
 library(tidyverse)
 library(ggplot2)
-library(gganimate)
-library(readxl)
 library(lubridate)
-library(sysfonts)
-library(showtext)
+library(extrafont)
 
 # ggplot theme
-font_add("Nexa Light", "Nexa Light.otf")
-font_add("Nexa Bold", "Nexa Bold.otf")
+font_import(pattern = "AppleGothic", prompt = FALSE)
 
 ###################
 ## theme
@@ -44,8 +41,8 @@ scale_color_continuous_mark <- function(){
 
 theme_mark <- function(base_size=12, font=NA){
   
-  txt <- element_text(size = base_size, color = "black", family="Nexa Light")
-  bold_txt <- element_text(size = base_size+2, color = "black", family="Nexa Bold")
+  txt <- element_text(size = base_size, color = "black", family="AppleGothic")
+  bold_txt <- element_text(size = base_size+2, color = "black", family="AppleGothic")
   
   theme_minimal(base_size = base_size, base_family = font) +
     theme(
@@ -80,7 +77,7 @@ theme_mark <- function(base_size=12, font=NA){
 theme_set(theme_mark()) 
 ```
 
-```{r loading_data, echo=FALSE, message=FALSE}
+```{r loading_data, echo=FALSE, message=FALSE, error=FALSE}
 # setwd("~/data-viz/hw3")
 #### load the data
 
