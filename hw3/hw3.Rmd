@@ -1,0 +1,168 @@
+---
+title: "hw3"
+author: "Mark Vandergon"
+date: "10/14/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(gganimate)
+library(readxl)
+library(lubridate)
+library(showtext)
+
+# ggplot theme
+font_add("Nexa Light", "Nexa Light.otf")
+font_add("Nexa Bold", "Nexa Bold.otf")
+
+###################
+## theme
+
+pallete<- c("#484EF4", "#1922FF",  "#0009FF",	"#B29000", 	"#FFCD00")
+pallete2 <- c("#4870F4", "#3D5399",  "#00C2FF",	"#FF8440", 	"#CC3912")
+scale_fill_mark <- function(){
+  structure(list(
+    scale_fill_manual(values=pallete)
+  ))
+}
+
+scale_color_discrete_mark <- function(){
+  structure(list(
+    scale_color_manual(values=pallete)
+  ))
+}
+
+scale_color_continuous_mark <- function(){
+  structure(list(
+    scale_color_gradientn(colours = pallete)
+  ))
+}
+##################################
+
+theme_mark <- function(base_size=12, font=NA){
+  
+  txt <- element_text(size = base_size, colour = "black", family="Nexa Light")
+  bold_txt <- element_text(size = base_size+2, colour = "black", family="Nexa Bold")
+  
+  theme_minimal(base_size = base_size, base_family = font) +
+    theme(
+      ###### clean up!
+      legend.key = element_blank(), 
+      strip.background = element_blank(), 
+      ########### text basics
+      text = txt, 
+      plot.title = bold_txt, 
+      axis.title = txt, 
+      axis.text = txt, 
+      legend.text = txt ) +
+    
+    ############## axis lines
+    theme(
+      axis.line.y = element_line(colour = "#333333", size = 0.8, linetype = "solid"),
+      axis.line.x = element_line(colour = "#333333", size = 0.8, linetype = "solid"),
+      
+      ### legend  top and no title!
+      legend.position = "top", 
+      legend.title = element_blank(),
+      legend.key = element_rect(fill = "#f8f8f8", color = "#f8f8f8"),
+      legend.background = element_rect( fill = "#f8f8f8",color = "#f8f8f8", size = 0.5, linetype = "solid"),
+      
+      ## background
+      plot.background = element_rect(fill = "#f0f0f0",colour = "#f0f0f0",size = 0.5)
+      )
+}
+
+####################
+
+theme_set(theme_mark()) 
+```
+
+```{r loading_data echo=FALSE, message=FALSE}
+# setwd("~/data-viz/hw3")
+#### load the data
+
+# Dataset 1
+# FRED Federal Reserve Bank of St. Louis, selected metrics (FEDFUNDS, GDPC1, GDPDEF, GDPPOT, and CPILFESL)
+fedfunds <- read_csv('FEDFUNDS.csv')
+fedfunds$DATE <- ymd(fedfunds$DATE)
+fedfunds <- filter(fedfunds, DATE > "1960-01-01" & DATE <"2017-07-01")
+gdpc1 <- read_csv('GDPC1.csv')
+gdpc1$DATE <- ymd(gdpc1$DATE)
+gdpc1 <- filter(gdpc1, DATE > "1960-01-01" & DATE <"2017-07-01")
+gdpdef.pc1 <- read_csv('GDPDEF_PC1.csv')
+gdpdef.pc1$DATE <- ymd(gdpdef.pc1$DATE)
+gdpdef.pc1 <- filter(gdpdef.pc1, DATE > "1960-01-01" & DATE <"2017-07-01")
+gdppot <- read_csv('GDPPOT.csv')
+gdppot$DATE <- ymd(gdppot$DATE)
+gdppot <- filter(gdppot, DATE > "1960-01-01" & DATE <"2017-07-01")
+
+# combine for taylor rate
+taylor <- inner_join(by='DATE', gdpc1, gdpdef.pc1) %>%
+          inner_join(by='DATE', gdppot)
+
+# track against core CPI
+core_cpi <- read_csv('CPILFESL.csv')
+core_cpi$DATE <- ymd(core_cpi$DATE)
+core_cpi <- filter(core_cpi, DATE > "1960-01-01" & DATE <"2017-07-01")
+
+# Dataset 2
+# Cavallo, Alberto, and Roberto Rigobon (2016) "The Billion Prices Project"
+pp <- read_csv('pricestats_bpp_arg_usa.csv')
+pp$date <- dmy(pp$date)
+t <- c(1000)
+pp_recent <- pp %>%
+              filter(country == "USA") %>%
+              top_n(t, date) 
+```
+
+## Data and Metrics
+#### Effective Federal Funds Rate
+The federal funds rate is the interest rate at which depository institutions trade federal funds (balances held at Federal Reserve Banks) with each other overnight. When a depository institution has surplus balances in its reserve account, it lends to other banks in need of larger balances. In simpler terms, a bank with excess cash, which is often referred to as liquidity, will lend to another bank that needs to quickly raise liquidity.
+
+#### The Taylor Rule:
+https://fred.stlouisfed.org/graph/?g=cN69
+It has three main inputs:current economic output, potential output and inflation. Often a 2% steady state inflation is assummed. In future assignments, I may use realtime data to get a more granular estimate of inflation.
+
+a. Real Potential Gross Domestic Product: GDPPOT
+b. Real Gross Domestic Product: GDPC1
+c. % Annual Change of Gross Domestic Product: Implicit Price Deflator (indexed): GDPDEF_PC1
+
+The Taylor Rule formula for interest rate:
+``` {r taylor_rule error=FALSE, echo=FALSE} 
+taylor_rate <- function (potential_gdp, real_gdp, gdpdef_pc1, inflation=2){
+  rate <- gdpdef_pc1+inflation +
+          0.5*(gdpdef_pc1-inflation) +
+          0.5*(real_gdp-potential_gdp)/potential_gdp
+  return(rate)
+}
+taylor <- taylor %>% 
+          rowwise() %>% 
+          mutate(RATE= taylor_rate(GDPPOT,GDPC1,GDPDEF_PC1))
+```
+
+Plotting against the real rate, we can observe how well Taylor tracks with the True
+``` {r rates, echo=FALSE}
+rates <- ggplot() +
+      geom_line(data = taylor, aes(x=DATE, y=RATE), color = "#FF3E23", size=2) +
+      geom_line(data = fedfunds, aes(x=DATE, y=FEDFUNDS), color = "#333333") +
+      labs(y = "Interest Rate (%)",
+           x = "Date",
+           title="The Taylor Rule loosely tracks with the Real Fed Funds Rate",
+           subtitle="Simplified Taylor Rule interest rate against real fed funds rate (source: FRB St. Louis)")
+rates
+```
+
+```{r pp, echo=FALSE}
+pp <- ggplot(pp_recent, aes(x=date, y=indexCPI, group=1)) +
+  geom_line(colour = "#f45f09")+
+  stat_smooth(span=0.5, color="#DDDDDD") +
+  labs(x="Date", 
+       y="CPI",
+       title="Consumer Price Index: 2013 to 2015",
+       subtitle="(source:Billion Prices)")
+pp
+```
+
+Core CPI (no food or oil prices) can be used to recognize periods of inflation and deflation. Significant increases in the CPI within a short time frame might indicate a period of inflation, and significant decreases in CPI within a short time frame might indicate a period of deflation.
