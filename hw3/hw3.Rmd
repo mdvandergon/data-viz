@@ -43,8 +43,8 @@ scale_color_continuous_mark <- function(){
 
 theme_mark <- function(base_size=12, font=NA){
   
-  txt <- element_text(size = base_size, colour = "black", family="Nexa Light")
-  bold_txt <- element_text(size = base_size+2, colour = "black", family="Nexa Bold")
+  txt <- element_text(size = base_size, color = "black", family="Nexa Light")
+  bold_txt <- element_text(size = base_size+2, color = "black", family="Nexa Bold")
   
   theme_minimal(base_size = base_size, base_family = font) +
     theme(
@@ -60,8 +60,8 @@ theme_mark <- function(base_size=12, font=NA){
     
     ############## axis lines
     theme(
-      axis.line.y = element_line(colour = "#333333", size = 0.8, linetype = "solid"),
-      axis.line.x = element_line(colour = "#333333", size = 0.8, linetype = "solid"),
+      axis.line.y = element_line(color = "#333333", size = 0.8, linetype = "solid"),
+      axis.line.x = element_line(color = "#333333", size = 0.8, linetype = "solid"),
       
       ### legend  top and no title!
       legend.position = "top", 
@@ -70,7 +70,7 @@ theme_mark <- function(base_size=12, font=NA){
       legend.background = element_rect( fill = "#f8f8f8",color = "#f8f8f8", size = 0.5, linetype = "solid"),
       
       ## background
-      plot.background = element_rect(fill = "#f0f0f0",colour = "#f0f0f0",size = 0.5)
+      plot.background = element_rect(fill = "#f0f0f0", color = "#f0f0f0",size = 0.5)
       )
 }
 
@@ -85,27 +85,32 @@ theme_set(theme_mark())
 
 # Dataset 1
 # FRED Federal Reserve Bank of St. Louis, selected metrics (FEDFUNDS, GDPC1, GDPDEF, GDPPOT, and CPILFESL)
-fedfunds <- read_csv('FEDFUNDS.csv')
-fedfunds$DATE <- ymd(fedfunds$DATE)
-fedfunds <- filter(fedfunds, DATE > "1960-01-01" & DATE <"2017-07-01")
-gdpc1 <- read_csv('GDPC1.csv')
-gdpc1$DATE <- ymd(gdpc1$DATE)
-gdpc1 <- filter(gdpc1, DATE > "1960-01-01" & DATE <"2017-07-01")
-gdpdef.pc1 <- read_csv('GDPDEF_PC1.csv')
-gdpdef.pc1$DATE <- ymd(gdpdef.pc1$DATE)
-gdpdef.pc1 <- filter(gdpdef.pc1, DATE > "1960-01-01" & DATE <"2017-07-01")
-gdppot <- read_csv('GDPPOT.csv')
-gdppot$DATE <- ymd(gdppot$DATE)
-gdppot <- filter(gdppot, DATE > "1960-01-01" & DATE <"2017-07-01")
-
-# combine for taylor rate
-taylor <- inner_join(by='DATE', gdpc1, gdpdef.pc1) %>%
-          inner_join(by='DATE', gdppot)
+fedfunds <- read_csv('FEDFUNDS.csv') %>% 
+            mutate(QTR=as.yearqtr(DATE)) %>% 
+            mutate(DATE= ymd(DATE)) %>% 
+            filter(DATE > "1960-01-01" & DATE <"2017-07-01")
+fed_funds_qtr <- read_csv('FEDFUNDS_QTR.csv') %>%
+                  filter(DATE > "1960-01-01" & DATE <"2017-07-01")
+gdpc1 <- read_csv('GDPC1.csv') %>% 
+        mutate(DATE= ymd(DATE)) %>%
+        filter(DATE > "1960-01-01" & DATE <"2017-07-01")
+gdpdef.pc1 <- read_csv('GDPDEF_PC1.csv')%>% 
+               mutate(DATE= ymd(DATE)) %>%
+              filter( DATE > "1960-01-01" & DATE <"2017-07-01")
+gdppot <- read_csv('GDPPOT.csv') %>% 
+        mutate(DATE= ymd(DATE)) %>%
+        filter(DATE > "1960-01-01" & DATE <"2017-07-01")
 
 # track against core CPI
-core_cpi <- read_csv('CPILFESL.csv')
-core_cpi$DATE <- ymd(core_cpi$DATE)
-core_cpi <- filter(core_cpi, DATE > "1960-01-01" & DATE <"2017-07-01")
+core_cpi <- read_csv('CPILFESL.csv') %>% 
+            mutate(DATE= ymd(DATE)) %>%
+            filter( DATE > "1960-01-01" & DATE <"2017-07-01")
+
+# combine for taylor rate
+econ <- inner_join(by='DATE', gdpc1, gdpdef.pc1) %>%
+          inner_join(by='DATE', gdppot) %>%
+          inner_join(by='DATE', core_cpi) %>%
+          inner_join(by='DATE', fed_funds_qtr)
 
 # Dataset 2
 # Cavallo, Alberto, and Roberto Rigobon (2016) "The Billion Prices Project"
@@ -117,19 +122,20 @@ pp_recent <- pp %>%
               top_n(t, date) 
 ```
 
-## Data and Metrics
-#### Effective Federal Funds Rate
+# Homework 3: Narrative
+### Effective Federal Funds Rate
 The federal funds rate is the interest rate at which depository institutions trade federal funds (balances held at Federal Reserve Banks) with each other overnight. When a depository institution has surplus balances in its reserve account, it lends to other banks in need of larger balances. In simpler terms, a bank with excess cash, which is often referred to as liquidity, will lend to another bank that needs to quickly raise liquidity.
 
-#### The Taylor Rule:
-https://fred.stlouisfed.org/graph/?g=cN69
-It has three main inputs:current economic output, potential output and inflation. Often a 2% steady state inflation is assummed. In future assignments, I may use realtime data to get a more granular estimate of inflation.
+### The Taylor Rule
+Monetary could be considered discretionary, where the rate is set by a diffuse method of discussion and analysis to decide on the current rate. However, there are policy rules that aim to determine the interest rate using the same inputs that the FOMC would. 
+
+The Taylor Rule is such a policy rule. It has three main inputs: current economic output, potential output and inflation. Often a 2% steady state inflation is assummed. In future assignments, I may use realtime data to get a more granular estimate of inflation.
 
 a. Real Potential Gross Domestic Product: GDPPOT
 b. Real Gross Domestic Product: GDPC1
 c. % Annual Change of Gross Domestic Product: Implicit Price Deflator (indexed): GDPDEF_PC1
 
-The Taylor Rule formula for interest rate:
+The Taylor Rule formula for the interest rate:
 ``` {r taylor_rule error=FALSE, echo=FALSE} 
 taylor_rate <- function (potential_gdp, real_gdp, gdpdef_pc1, inflation=2){
   rate <- gdpdef_pc1+inflation +
@@ -137,22 +143,51 @@ taylor_rate <- function (potential_gdp, real_gdp, gdpdef_pc1, inflation=2){
           0.5*(real_gdp-potential_gdp)/potential_gdp
   return(rate)
 }
-taylor <- taylor %>% 
+econ <- econ %>% 
           rowwise() %>% 
-          mutate(RATE= taylor_rate(GDPPOT,GDPC1,GDPDEF_PC1))
+          mutate(TAYLORRATE= taylor_rate(GDPPOT,GDPC1,GDPDEF_PC1)) %>%
+          mutate(DIFF= TAYLORRATE-FEDFUNDS)
+
 ```
 
-Plotting against the real rate, we can observe how well Taylor tracks with the True
+Plotting against the real rate, we can observe how well Taylor tracks with the true one.
 ``` {r rates, echo=FALSE}
-rates <- ggplot() +
-      geom_line(data = taylor, aes(x=DATE, y=RATE), color = "#FF3E23", size=2) +
-      geom_line(data = fedfunds, aes(x=DATE, y=FEDFUNDS), color = "#333333") +
+rates <- ggplot(data = econ, aes(x=DATE)) +
+      geom_line(aes(y=TAYLORRATE), color = "#FF3E23", size=2) +
+      geom_line(aes(y=FEDFUNDS), color = "#333333") +
       labs(y = "Interest Rate (%)",
            x = "Date",
            title="The Taylor Rule loosely tracks with the Real Fed Funds Rate",
            subtitle="Simplified Taylor Rule interest rate against real fed funds rate (source: FRB St. Louis)")
 rates
 ```
+``` {r }
+diff <- ggplot(data = econ, aes(y=DIFF)) +
+      geom_point(aes(x=DATE, color=DATE), show.legend = FALSE) +
+      geom_hline(yintercept = 0) + 
+      labs(y = "Diff (TR - FF)",
+           x = "Date",
+           title="Taylor Over Estimates, and slightly more when changes in GDP are Higher",
+           subtitle="Difference in TR and Fed Funds over time (source: FRB St. Louis)")
+diff
+```
+
+
+``` {r }
+diff <- ggplot(data = econ, aes(y=DIFF)) +
+      geom_point(aes(x=GDPDEF_PC1, color=row_number(DATE)), show.legend = FALSE) + 
+      scale_color_continuous_mark() +
+      geom_hline(yintercept = 0) + 
+      labs(y = "Diff (TR - FF)",
+           x = "%  Change of GDP",
+           fill="Time to Present",
+           title="Recently, Taylor Rule has Over Estimated and GDP less Volatile",
+           subtitle="Difference in TR and Fed Funds over time (yellow is more recent) (source: FRB St. Louis)")
+diff
+```
+### Increases in Inflation
+
+Core CPI (no food or oil prices) can be used to recognize periods of inflation and deflation. Significant increases in the CPI within a short time frame might indicate a period of inflation, and significant decreases in CPI within a short time frame might indicate a period of deflation.
 
 ```{r pp, echo=FALSE}
 pp <- ggplot(pp_recent, aes(x=date, y=indexCPI, group=1)) +
@@ -165,4 +200,4 @@ pp <- ggplot(pp_recent, aes(x=date, y=indexCPI, group=1)) +
 pp
 ```
 
-Core CPI (no food or oil prices) can be used to recognize periods of inflation and deflation. Significant increases in the CPI within a short time frame might indicate a period of inflation, and significant decreases in CPI within a short time frame might indicate a period of deflation.
+
