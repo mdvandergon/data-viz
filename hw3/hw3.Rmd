@@ -118,6 +118,27 @@ econ <- inner_join(by='DATE', gdpc1, gdpdef.pc1) %>%
           inner_join(by='DATE', core_cpi) %>%
           inner_join(by='DATE', fed_funds_qtr)
 
+# Using FRB St. Louis Recession dates (USREC)
+recessions <- read.table(textConnection(
+                    "Peak, Trough
+                    1960-04-01, 1961-02-01
+                    1969-12-01, 1970-11-01
+                    1973-11-01, 1975-03-01
+                    1980-01-01, 1980-07-01
+                    1981-07-01, 1982-11-01
+                    1990-07-01, 1991-03-01
+                    2001-03-01, 2001-11-01
+                    2007-12-01, 2009-06-01"), sep=',',
+                    colClasses=c('Date', 'Date'), header=TRUE) %>%
+              mutate(Peak= ymd(Peak)) %>%
+              mutate(Trough= ymd(Trough)) %>%
+              # calculate the length b/t recessions
+              mutate(Weeks= difftime(lead(Peak, 1), Peak, units="weeks"))
+
+# since out last value has no week length (no leading recession), we set this value to inf
+# we do this because we don't have a bound on the difference when we calculate weeks from recession below
+recessions$Weeks[is.na(recessions$Weeks)] <- Inf
+
 # Dataset 2
 # Cavallo, Alberto, and Roberto Rigobon (2016) "The Billion Prices Project"
 pp <- read_csv('pricestats_bpp_arg_usa.csv')
@@ -128,14 +149,13 @@ pp_recent <- pp %>%
               top_n(t, date) 
 ```
 
-# Homework 3: Narrative
 ### Effective Federal Funds Rate
 The federal funds rate is the interest rate at which depository institutions trade federal funds (balances held at Federal Reserve Banks) with each other overnight. When a depository institution has surplus balances in its reserve account, it lends to other banks in need of larger balances. In simpler terms, a bank with excess cash, which is often referred to as liquidity, will lend to another bank that needs to quickly raise liquidity.
 
 ### The Taylor Rule
-Monetary could be considered discretionary, where the rate is set by a diffuse method of discussion and analysis to decide on the current rate. However, there are policy rules that aim to determine the interest rate using the same inputs that the FOMC would. 
+Monetary Policy could be considered discretionary, meaning the rate is set by a diffuse method of discussion and analysis to decide on the current rate. However, there are policy rules that aim to determine the interest rate using the same inputs that the FOMC would. 
 
-The Taylor Rule is such a policy rule. It has three main inputs: current economic output, potential output and inflation. Often a 2% steady state inflation is assummed. In future assignments, I may use realtime data to get a more granular estimate of inflation.
+The Taylor Rule is such a policy rule. It has three main inputs: current economic output, potential output and inflation. Often a 2% steady state inflation is assumed. In future assignments, I may use realtime data to get a more granular estimate of inflation.
 
 a. Real Potential Gross Domestic Product: GDPPOT
 b. Real Gross Domestic Product: GDPC1
@@ -152,60 +172,62 @@ taylor_rate <- function (potential_gdp, real_gdp, gdpdef_pc1, inflation=2){
 econ <- econ %>% 
           rowwise() %>% 
           mutate(TAYLORRATE= taylor_rate(GDPPOT,GDPC1,GDPDEF_PC1)) %>%
-          mutate(DIFF= TAYLORRATE-FEDFUNDS)
+          mutate(DIFF= TAYLORRATE-FEDFUNDS) %>%
+          mutate(PERCENT_DIFF= DIFF/FEDFUNDS)
 
 ```
 
 Plotting against the real rate, we can observe how well Taylor tracks with the true one.
 
-``` {r rates, echo=FALSE}
+``` {r rates}
 rates <- ggplot(data = econ, aes(x=DATE)) +
-      geom_line(aes(y=TAYLORRATE), size=1, color="1") +
-      geom_line(aes(y=FEDFUNDS), color="2") +
-      scale_color_discrete_mark() +
-      labs(y = "Interest Rate (%)",
-           x = "Date",
-           color= "Taylor Rate",
-           title="The Taylor Rule loosely tracks with the Real Fed Funds Rate",
-           subtitle="Simplified Taylor Rule interest rate against real fed funds rate",
-           caption="(source: FRB St. Louis)")
+        geom_line(aes(y=TAYLORRATE), size=1.5, color="#CC3912") +
+        geom_line(aes(y=FEDFUNDS), color="#DDDDDD") +
+        labs(y = "Interest Rate (%)",
+             x = "Date",
+             color= "Taylor Rate",
+             title="The Taylor Rule loosely tracks with the Real Fed Funds Rate",
+             subtitle="Simplified Taylor Rule interest rate against real fed funds rate",
+             caption="(source: FRB St. Louis)")
 rates
 ```
 
 Now, we can observe this difference over time...
 
 ``` {r difference_in_rates}
-diff <- ggplot(data = econ, aes(x=DATE)) +
-      geom_point(aes(y=DIFF), color= "#FF8440") +
-      geom_line(aes(y=FEDFUNDS), color= "#DDDDDD") +
-      geom_hline(yintercept = 0) + 
-      labs(y = "Difference (Interest Rate)",
-           x = "Date",
-           title="The Difference between the Two Rates has been Quite Large",
-           subtitle="TR - FF in orange, with FF in grey",
-           caption="source: FRB St. Louis")
+diff <- ggplot(data=econ, aes(x=DATE)) +
+        geom_point(aes(y=DIFF), color= "#FF8440") +
+        geom_line(aes(y=FEDFUNDS), color= "#DDDDDD") +
+        geom_hline(yintercept = 0) + 
+        labs(y = "Difference (Interest Rate)",
+             x = "Date",
+             title="The Difference between the Two Rates has been Quite Large",
+             subtitle="TR - FF in orange, with FF in grey",
+             caption="source: FRB St. Louis")
 diff
 ```
 
-### Diagnosing the difference
+How might this difference or error in the target rate depend on the state of the economy at that given time? We will visualize a few guesses and diagnose the difference.
+
+### Diagnosing the difference: GDP changes
 How might the Rates differ when changes in the economy are large? We have two metrics to review: GDP and inflation. Let's review GDP first.
 
 ``` {r gdp_change}
 diff <- ggplot(data = econ, aes(y=DIFF)) +
-      geom_point(aes(x=GDPDEF_PC1, color=DATE)) + 
-      scale_color_continuous_mark() +
-      geom_hline(yintercept = 0) + 
-      labs(y = "Diff (TR - FF)",
-           x = "%  Change of GDP",
-           color="Time to Present",
-           title="Recently, Taylor Rule  Over Estimated and GDP Change Lessened",
-           subtitle="Difference in TR and Fed Funds over time (yellow is more recent)",
-           caption="source: FRB St. Louis")
+        geom_point(aes(x=GDPDEF_PC1, color=DATE)) + 
+        scale_color_continuous_mark() +
+        geom_hline(yintercept = 0) + 
+        labs(y = "Diff (TR - FF)",
+             x = "%  Change of GDP",
+             color="Days from 1960",
+             title="Recently, Taylor Rule Over-Estimated and GDP Change Lessened",
+             subtitle="Difference in TR and Fed Funds over time (yellow is more recent)",
+             caption="source: FRB St. Louis")
 diff
 ```
-### Changes in Inflation: a potential rule improvement
 
-Core CPI (no food or oil prices) can be used to recognize periods of inflation and deflation. Significant increases in the CPI within a short time frame might indicate a period of inflation, and significant decreases in CPI within a short time frame might indicate a period of deflation. Reviewing the graph below, we can observe how a 2% constant inflation is a simplifing assumption. With better inflation measures, perhaps the simple Taylor can be improved.
+### Diagnosing the Difference: Changes in Inflation
+Notice how the original calculation assumes a 2% steady state inflation. Core CPI (no food or oil prices) can be used to recognize periods of inflation and deflation. Significant increases in the CPI within a short time frame might indicate a period of inflation, and significant decreases in CPI within a short time frame might indicate a period of deflation. Reviewing the graph below, we can observe how a 2% constant inflation is a simplifying assumption. With better inflation measures, perhaps the simple Taylor can be improved.
 
 ```{r pp, echo=FALSE, message=FALSE}
 pp <- ggplot(pp_recent, aes(x=date, y=indexCPI, group=1)) +
@@ -218,3 +240,87 @@ pp <- ggplot(pp_recent, aes(x=date, y=indexCPI, group=1)) +
        caption="source: Billion Prices")
 pp
 ```
+
+But inflation could be a small impact overall. How might the Taylor rate difference vary as the overall status of the economy changes?
+
+### Diagnosing the difference: Weeks since a Recession
+
+Below, we can see that during a recession, the proposed rate is either consistently over or consistently under the actual Fed Funds rate. This difference doesn't vary dramatically between recession and recovery.
+
+``` {r time_rate_function,  include=FALSE}
+weeks_since <-  function(date, comparison_dates=recessions$Peak, comparison_lengths=recessions$Weeks){
+  "
+  For a given date find nearest weeks since a recession started
+
+  For efficency, I have calculated the length b/t recession starts and exploited that facet that:
+  the small number of weeks from any reception will be the first diff in an order list that
+  diff >= 0 & diff <= max_length for a given comparison (recession_start) date
+  
+  https://stackoverflow.com/questions/6434663/looping-over-a-datetime-object-results-in-a-numeric-iterator
+  "
+  for (i in seq_along(comparison_dates)){
+    comp_date <-comparison_dates[i]
+    max_length <- comparison_lengths[i]
+    diff <- difftime(date, comp_date, units="weeks")
+    if (diff >= 0 & diff <= max_length) {
+      return(as.integer(diff))
+    }
+  }
+}
+
+econ <- econ %>% mutate(WEEKS_SINCE_REC = unlist(lapply(DATE, weeks_since)))
+
+#create a layer for each recession era
+econ$ERA = 0
+for (i in seq_along(recessions$Peak)){
+  if (i < length(recessions$Peak)){
+    econ[ (econ$DATE >= recessions$Peak[i] & econ$DATE < recessions$Peak[i+1]), ]$ERA <- i
+  }
+  else {
+    econ[ (econ$DATE >= recessions$Peak[i]), ]$ERA <- i
+  }
+}
+
+```
+
+
+```{r weeks_since}
+week_plot <- ggplot(data = econ, aes(x=WEEKS_SINCE_REC)) +
+        geom_point(aes(y=DIFF, color=DATE)) + 
+        scale_color_gradientn(colours=pallete2) + 
+        geom_hline(yintercept = 0) + 
+        labs(y = "Diff (TR - FF)",
+             x = "Weeks since recession",
+             title="Rate Difference is Constant Over Recession Periods",
+             color="Days from 1960",
+             subtitle="Difference in rates over distance in weeks since a recession",
+             caption="source: FRB St. Louis")
+week_plot
+```
+
+```{r recession_plot_layers}
+#stack the eras
+week_slice_plot <- ggplot(data = econ) +
+                    # need a color scale!
+                    geom_hline(yintercept = 0) + 
+                    labs(y = "Diff (TR - FF) %",
+                         x = "Weeks Since recession",
+                         color= "Recession Era",
+                         title="Rate Difference slowly declines in more stable periods",
+                         subtitle="Difference in rates over distance in weeks since a recession",
+                         caption="source: FRB St. Louis")
+                    
+for (i in seq_along(recessions$Peak)){
+  if (i < length(recessions$Peak)){
+    new_slice <- econ[ (econ$DATE >= recessions$Peak[i] & econ$DATE < recessions$Peak[i+1]), ]
+  }
+  else {
+    new_slice <- econ[ (econ$DATE >= recessions$Peak[i]), ]
+  }
+  
+  week_slice_plot <- week_slice_plot + geom_line(data=new_slice, aes(x=WEEKS_SINCE_REC, y=DIFF), color=i)
+}
+week_slice_plot
+```
+
+
