@@ -7,6 +7,7 @@ output:
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
+Sys.setenv(TZ="America/Chicago")
 library(tidyverse)
 library(ggplot2)
 library(lubridate)
@@ -282,9 +283,9 @@ for (i in seq_along(recessions$Peak)){
 
 ```
 
-```{r recession_plot_layers}
+```{r recession_layers}
 #stack the eras
-week_slice_plot <- ggplot(data = econ, aes(group=ERA, color=ERA)) +
+rec_layer_plot <- ggplot(data = econ, aes(group=ERA, color=ERA)) +
                     scale_color_brewer(type='seq')+
                     geom_hline(yintercept = 0) + 
                     labs(y = "Diff (TR - FF) %",
@@ -302,13 +303,13 @@ for (i in seq_along(recessions$Peak)){
     new_slice <- econ[ (econ$DATE >= recessions$Peak[i]), ]
   }
   
-  week_slice_plot <- week_slice_plot + geom_line(data=new_slice, aes(x=WEEKS_SINCE_REC, y=DIFF))
+  rec_layer_plot <- rec_layer_plot + geom_line(data=new_slice, aes(x=WEEKS_SINCE_REC, y=DIFF))
 }
-week_slice_plot
+rec_layer_plot
 ```
-```{r recession_plot_facet}
-#stack the eras
-week_facet_plot <- ggplot(data = econ, aes(x=WEEKS_SINCE_REC, y=DIFF)) +
+```{r recession_facet}
+#facet the eras
+rec_facet_plot <- ggplot(data = econ, aes(x=WEEKS_SINCE_REC, y=DIFF)) +
                     geom_hline(yintercept = 0) +
                     geom_line(aes(color="#3B42FA"), show.legend=FALSE) +
                     facet_wrap(~ERA, ncol = 3, labeller=as_labeller(recessions$Peak))+
@@ -317,6 +318,7 @@ week_facet_plot <- ggplot(data = econ, aes(x=WEEKS_SINCE_REC, y=DIFF)) +
                          title="Rate Difference is Small at the Beginning of Recessions",
                          subtitle="Difference in rates during recession eras (ex. Apr 1960)",
                          caption="source: FRB St. Louis")
-week_facet_plot
+rec_facet_plot
 ```
+
 
