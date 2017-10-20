@@ -34,7 +34,7 @@ scale_color_discrete_mark <- function(){
 
 scale_color_continuous_mark <- function(){
   structure(list(
-    scale_color_gradientn(colours = pallete)
+    scale_color_gradientn(colours = pallete2)
   ))
 }
 ##################################
@@ -245,8 +245,7 @@ But inflation could be a small impact overall. How might the Taylor rate differe
 
 ### Diagnosing the difference: Weeks since a Recession
 
-Below, we can see that during a recession, the proposed rate is either consistently over or consistently under the actual Fed Funds rate. This difference doesn't vary dramatically between recession and recovery.
-
+Below, we can see that during a recession, the proposed rate is either consistently over or consistently under the actual Fed Funds rate. This difference doesn't vary dramatically between recession and recovery, but during moments near a recession, the rate difference is relatively smaller. I have taken dates of recessions from 1960 on from the FRED dataset from the Federal Reserve Bank of St. Louis.
 ``` {r time_rate_function,  include=FALSE}
 weeks_since <-  function(date, comparison_dates=recessions$Peak, comparison_lengths=recessions$Weeks){
   "
@@ -274,39 +273,24 @@ econ <- econ %>% mutate(WEEKS_SINCE_REC = unlist(lapply(DATE, weeks_since)))
 econ$ERA = 0
 for (i in seq_along(recessions$Peak)){
   if (i < length(recessions$Peak)){
-    econ[ (econ$DATE >= recessions$Peak[i] & econ$DATE < recessions$Peak[i+1]), ]$ERA <- i
+    econ[ (econ$DATE >= recessions$Peak[i] & econ$DATE < recessions$Peak[i+1]), ]$ERA <- paste(recessions$Peak[i])
   }
   else {
-    econ[ (econ$DATE >= recessions$Peak[i]), ]$ERA <- i
+    econ[ (econ$DATE >= recessions$Peak[i]), ]$ERA <- paste(recessions$Peak[i])
   }
 }
 
 ```
 
-
-```{r weeks_since}
-week_plot <- ggplot(data = econ, aes(x=WEEKS_SINCE_REC)) +
-        geom_point(aes(y=DIFF, color=DATE)) + 
-        scale_color_gradientn(colours=pallete2) + 
-        geom_hline(yintercept = 0) + 
-        labs(y = "Diff (TR - FF)",
-             x = "Weeks since recession",
-             title="Rate Difference is Constant Over Recession Periods",
-             color="Days from 1960",
-             subtitle="Difference in rates over distance in weeks since a recession",
-             caption="source: FRB St. Louis")
-week_plot
-```
-
 ```{r recession_plot_layers}
 #stack the eras
-week_slice_plot <- ggplot(data = econ) +
-                    # need a color scale!
+week_slice_plot <- ggplot(data = econ, aes(group=ERA, color=ERA)) +
+                    scale_color_brewer(type='seq')+
                     geom_hline(yintercept = 0) + 
                     labs(y = "Diff (TR - FF) %",
                          x = "Weeks Since recession",
                          color= "Recession Era",
-                         title="Rate Difference slowly declines in more stable periods",
+                         title="Rate Difference Unique in Different Recession Periods",
                          subtitle="Difference in rates over distance in weeks since a recession",
                          caption="source: FRB St. Louis")
                     
@@ -318,9 +302,21 @@ for (i in seq_along(recessions$Peak)){
     new_slice <- econ[ (econ$DATE >= recessions$Peak[i]), ]
   }
   
-  week_slice_plot <- week_slice_plot + geom_line(data=new_slice, aes(x=WEEKS_SINCE_REC, y=DIFF), color=i)
+  week_slice_plot <- week_slice_plot + geom_line(data=new_slice, aes(x=WEEKS_SINCE_REC, y=DIFF))
 }
 week_slice_plot
 ```
-
+```{r recession_plot_facet}
+#stack the eras
+week_facet_plot <- ggplot(data = econ, aes(x=WEEKS_SINCE_REC, y=DIFF)) +
+                    geom_hline(yintercept = 0) +
+                    geom_line(aes(color="#3B42FA"), show.legend=FALSE) +
+                    facet_wrap(~ERA, ncol = 3, labeller=as_labeller(recessions$Peak))+
+                    labs(y = "Diff (TR - FF) %",
+                         x = "Weeks Since recession",
+                         title="Rate Difference is Small at the Beginning of Recessions",
+                         subtitle="Difference in rates during recession eras (ex. Apr 1960)",
+                         caption="source: FRB St. Louis")
+week_facet_plot
+```
 
