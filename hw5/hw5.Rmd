@@ -1,0 +1,24 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+Sys.setenv(TZ="America/Chicago")
+library(tidyverse)
+library(ggrepel)
+library(ggplot2)
+library(tigris)
+require(rgdal)
+library(lubridate)
+library(extrafont)
+
+#import a custom theme
+source("https://raw.githubusercontent.com/mdvandergon/data-viz/master/custom_theme.R")
+
+```
+
+``` {r}
+# Read SHAPEFILE.shp from the current working directory (".")
+shape <- readOGR(dsn = ".", layer = "~/workspace/SHAPEFILE")
+```

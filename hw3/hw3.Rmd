@@ -373,3 +373,52 @@ rec_facet_plot
 
 #### Next Up: Modified Taylor Rules using better datasources for inflation and output gap
 We will now use core inflation instead of a constant 2%. What happens?
+``` {r}
+# Now we will work with a modified rate
+econ <- econ %>% 
+          rowwise() %>% 
+          mutate(TAYLORRATE_MOD= taylor_rate(GDPPOT,GDPC1,GDPDEF_PC1,CPILFESL_PC1)) %>%
+          mutate(DIFF_MOD= TAYLORRATE_MOD-FEDFUNDS) %>%
+          mutate(PERCENT_DIFF_MOD= DIFF_MOD/FEDFUNDS)
+```
+
+``` {r rates_mod}
+rates <- ggplot() +
+        geom_line(data = econ, aes(x=DATE, y=TAYLORRATE_MOD, color="1")) +
+        geom_line(data = econ, aes(x=DATE, y=TAYLORRATE, color="2")) +
+        geom_line(data = econ, aes(x=DATE, y=FEDFUNDS, color="3"), size=1.2) +      
+        scale_color_manual(values= c("#00C2FF","#CC3912", "#666666"), 
+                           labels = c("Taylor (Mod)", "Taylor", "Fed Funds")) +
+        geom_rect(data=recessions, aes(xmin=Peak, xmax=Trough, ymin=-Inf, ymax=+Inf), 
+                  fill='#888888', alpha=0.1) +
+        labs(y = "Interest Rate (%)",
+             x = "Date",
+             color= "",
+             title="Modified Rate",
+             subtitle="Simplified Taylor Rule interest rate against real fed funds rate",
+             caption="source: FRB St. Louis")
+rates
+```
+
+``` {r difference_in_rates_mod}
+diff <- ggplot() +
+        geom_point(data=filter(econ, PRE_GR==1), aes(x=DATE, y=PERCENT_DIFF_MOD, color= "#CC3912")) +      
+        geom_point(data=filter(econ, PRE_GR==1),aes(x=DATE, y=PERCENT_DIFF, color= "#00C2FF")) +
+        scale_color_manual(values= c("#CC3912", "#00C2FF"), 
+                           labels = c("Taylor (Mod)", "Taylor")) +
+        geom_rect(data=recessions, aes(xmin=Peak, xmax=Trough, ymin=-Inf, ymax=+Inf), 
+                  fill='#888888', alpha=0.1)+
+        geom_hline(yintercept = 0) + 
+        labs(y = "Difference (Interest Rate)",
+             x = "Date",
+             title="Pre Great Recession Differences",
+             subtitle="",
+             color="",
+             caption="source: FRB St. Louis")
+diff
+```
+
+
+The Fed Policy has deviated from simple macroeconomic calculations in a few key ways:
+(1) In times after a crisis, the Fed tends to raise rates at a lagged pace compared to what the underlying economic data show.
+(2) 
