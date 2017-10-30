@@ -2,6 +2,7 @@
 ## custom theme
 
 library(ggplot2)
+library(colormap)
 library(extrafont)
 
 # font is here: https://fonts.google.com/specimen/Noto+Sans?selection.family=Noto+Sans:400,400i,700

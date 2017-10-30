@@ -1,24 +1,153 @@
 ---
-title: "R Notebook"
+title: "Spatial Visualization"
 output: html_notebook
 ---
 
-```{r setup, include=FALSE, echo=FALSE}
+```{r setup, include=FALSE, echo=FALSE, message=FALSE}
 Sys.setenv(TZ="America/Chicago")
 library(tidyverse)
-library(ggrepel)
-library(ggplot2)
-library(tigris)
-require(rgdal)
 library(lubridate)
-library(extrafont)
+library(tigris)
+# library(ggmap)
+# library(maptools)
+# # library(rgeos)
+# # library(rgdal)
+# library(geojsonio)
+# library(sf)
+# library(viridis)
+# library(rvest)
+
+library(tilegramsR)
+suppressPackageStartupMessages(library(tilegramsR))
+library(leaflet)
+library(leaflet.extras)
+library(colormap)
+
+## example scale_color_colormap('col_name', discrete = T, colormap = colormaps$viridis, reverse = T)
 
 #import a custom theme
 source("https://raw.githubusercontent.com/mdvandergon/data-viz/master/custom_theme.R")
+pallete<- c("#484EF4", "#1922FF",  "#0009FF",	"#B29000", 	"#FFCD00")
+pallete2 <- c("#4870F4", "#3D5399",  "#00C2FF",	"#FF8440", 	"#CC3912")
+
+# Leaflet Options
+getLeafletOptions <- function(minZoom, maxZoom, ...) {
+  leafletOptions(
+    crs = leafletCRS("L.CRS.Simple"),
+    minZoom = minZoom, maxZoom = maxZoom,
+    dragging = FALSE, zoomControl = FALSE,
+    tap = FALSE,
+    attributionControl = FALSE , ...)
+}
+
+#Factor Palletes from Colormap
+# getFactorPal <- function(f) {
+#   colorFactor(colormap::colormap(
+#     colormap = colormap::colormaps$hsv,
+#     nshades = length(f)), f)
+# }
+
+getFactorPal <- function(f) {
+  colorFactor(colormaps$viridis, f)
+}
 
 ```
 
+## Motivation
+https://research.stlouisfed.org/publications/economic-synopses/2013/08/13/mind-the-regional-output-gap/
+
+
+``` {r loading_data}
+# Read combined statistical areas: https://www.census.gov/geo/maps-data/data/cbf/cbf_msa.html
+cbsa <- combined_statistical_areas(cb = FALSE, resolution = "5m", year = 2017)
+
+# states
+states <- states(cb = FALSE, resolution = "5m", year = 2017)
+
+# state gdp (Bureau of Economic Advisors: https://www.bea.gov/regional/downloadzip.cfm)
+state_gdp <- read_csv('QGSP_ALL_R.csv') %>% 
+                filter(IndustryId == 1)
+# convert Quarterly data to numeric
+state_gdp[, grepl( "Q" , names( state_gdp ) ) ] <- state_gdp[, grepl( "Q" , names( state_gdp ) ) ] %>%
+                lapply(function(x) as.numeric(as.character(x))) 
+
+```
+
+``` {r map_shapefile}
+# plot the shapes to ensure we have them
+
+leaflet(states) %>%
+  addTiles() %>%
+  addPolygons() %>%
+  setMapWidgetStyle()
+```
+
+``` {r rgdp}
+# fortify to convert into a dataframe
+state_map <- fortify(states, region="GEOID")
+
+# join "thematic" data
+# gdpDF <- plyr::join(gdp, states@data, by = "GeoFIPS")
+```
+
+```{r plot_rgdp}
+# plotting
+gdp_state <- ggplot(state_gdp, aes(map_id='GeoFIPS')) +
+  geom_map(aes(fill = '2016Q1'), map=state_map, color='#ffffff', size=0.1) + 
+  expand_limits(x=state_map$long,y=state_map$lat)
+
+gdp_state +
+  coord_map("albers", lat0=30, lat1=40) +
+  scale_fill_colormap("State RGDP",
+                      colormap = colormaps$viridis, reverse = TRUE, discrete = FALSE)
+```
+
+
+
+
+``` {r chartogram_rdgp}
+leaflet(
+  sf_NPR1to1,
+  options= getLeafletOptions(-1.5, -1.5)) %>%
+  addPolygons(
+    weight=2,color='#000000', group = 'states',
+    fillOpacity = 0.6, opacity = 1, fillColor= ~getFactorPal(state)(state),
+    highlightOptions = highlightOptions(weight = 4)) %>%
+  addLabelOnlyMarkers(
+    data=sf_NPR1to1.centers,
+    label = ~as.character(state),
+    labelOptions = labelOptions(
+    noHide = 'T', textOnly = T,
+    offset=c(-4,-10), textsize = '12px')) %>%
+  setMapWidgetStyle()
+```
+
+
+
 ``` {r}
-# Read SHAPEFILE.shp from the current working directory (".")
-shape <- readOGR(dsn = ".", layer = "~/workspace/SHAPEFILE")
+# From http://leafletjs.com/examples/choropleth/us-states.js
+qpal <- colorQuantile("Blues", domain = state_gdp$'2016Q1', n = 7)
+
+leaflet(states) %>%
+  setView(-96, 37.8, 4) %>%
+  addPolygons(
+    color = ~qpal('2016Q1'),
+    weight = 2,
+    opacity = 1,
+    dashArray = "3",
+    fillOpacity = 0.7,
+    smoothFactor = 0.2,
+    highlight = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")) %>%
+  addLegend(pal = qpal, values = ~'2016Q1', opacity = 0.7, title = NULL,
+    position = "bottomright")
 ```
