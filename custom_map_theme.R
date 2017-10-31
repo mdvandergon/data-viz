@@ -1,9 +1,10 @@
 ###################
-## custom theme
+## custom MAP theme
 
 library(ggplot2)
 library(colormap)
 library(extrafont)
+library(ggthemes)
 
 # font is here: https://fonts.google.com/specimen/Noto+Sans?selection.family=Noto+Sans:400,400i,700
 font_import(pattern = "NotoSans", prompt = FALSE)
@@ -27,9 +28,16 @@ scale_color_continuous_mark <- function(){
     scale_color_gradientn(colours = pallete2)
   ))
 }
+
+########### useful coords (max points of contiguous US)
+top = 49.3457868 # north lat
+left = -124.7844079 # west long
+right = -66.9513812 # east long
+bottom =  24.7433195 # south lat
+
 ##################################
 
-theme_mark <- function(base_size=12, font=NA){
+theme_map_mark <- function(base_size=12, font=NA){
   
   small_txt <- element_text(size = base_size*0.8, color = "#333333", family="Noto Sans")
   txt <- element_text(size = base_size, color = "#333333", family="Noto Sans")
@@ -44,23 +52,18 @@ theme_mark <- function(base_size=12, font=NA){
       text = txt, 
       plot.title = bold_txt,
       plot.caption = italic_txt, 
-      axis.title = txt, 
-      axis.text = small_txt, 
+      axis.title = element_blank(), 
+      axis.text = element_blank(), 
       legend.text = small_txt,
       legend.title = small_txt) +
     
     ############## axis, panels, legend, etc
     theme(
-      axis.line.y = element_line(color = "#333333", size = 0.8, linetype = "solid"),
-      axis.line.x = element_line(color = "#333333", size = 0.8, linetype = "solid"),
-      
-      axis.ticks.x =  element_line(color = "#333333", size = 0.2, linetype = "solid"),
-      axis.ticks.y =  element_line(color = "#333333", size = 0.2, linetype = "solid"),
-      
-      panel.grid.major = element_line(color = "#f0f0f0", size = 0.2, linetype = "solid"),
-      panel.grid.minor = element_line(color = "#f0f0f0", size = 0.05, linetype = "solid"),
+      axis.line = element_blank(),
+      axis.ticks =  element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
       panel.border = element_blank(),
-      
       legend.position = "right", 
       # legend.title = element_blank(),
       legend.key = element_rect(fill = "#f8f8f8", color = "#f8f8f8"),
@@ -73,4 +76,5 @@ theme_mark <- function(base_size=12, font=NA){
 
 ####################
 
-theme_set(theme_mark()) 
+# If you choose to set this a default:
+# theme_set(theme_map_mark()) 

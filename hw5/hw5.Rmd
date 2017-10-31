@@ -1,6 +1,8 @@
 ---
 title: "Spatial Visualization"
-output: html_notebook
+output:
+  html_notebook: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE, echo=FALSE, message=FALSE}
@@ -9,27 +11,13 @@ library(tidyverse)
 library(lubridate)
 library(tigris)
 library(ggthemes)
-# library(geojsonio)
-# library(ggmap)
-# library(maptools)
-# # library(rgeos)
-# # library(rgdal)
-# library(sf)
-# library(viridis)
-# library(rvest)
-
 library(tilegramsR)
-suppressPackageStartupMessages(library(tilegramsR))
 library(leaflet)
 library(leaflet.extras)
 library(colormap)
 
-## example scale_color_colormap('col_name', discrete = T, colormap = colormaps$viridis, reverse = T)
-
-#import a custom theme
-source("https://raw.githubusercontent.com/mdvandergon/data-viz/master/custom_theme.R")
-pallete<- c("#484EF4", "#1922FF",  "#0009FF",	"#B29000", 	"#FFCD00")
-pallete2 <- c("#4870F4", "#3D5399",  "#00C2FF",	"#FF8440", 	"#CC3912")
+#import a custom map theme
+source("../custom_map_theme.R")
 
 # Leaflet Options
 getLeafletOptions <- function(minZoom, maxZoom, ...) {
@@ -40,96 +28,108 @@ getLeafletOptions <- function(minZoom, maxZoom, ...) {
     tap = FALSE,
     attributionControl = FALSE , ...)
 }
-
-#Factor Palletes from Colormap
-# getFactorPal <- function(f) {
-#   colorFactor(colormap::colormap(
-#     colormap = colormap::colormaps$hsv,
-#     nshades = length(f)), f)
-# }
-
 getFactorPal <- function(f) {
   colorFactor(colormaps$viridis, f)
 }
-
 ```
 
-## Motivation
-https://research.stlouisfed.org/publications/economic-synopses/2013/08/13/mind-the-regional-output-gap/
+#### Motivation: Regional GDP Differences
+There are only a few states who are exceeding their Potential GDP, or highest efficiency. [this article](https://research.stlouisfed.org/publications/economic-synopses/2013/08/13/mind-the-regional-output-gap/) from the St. Louis Federal Reserve.
 
-
-``` {r loading_data, echo=FALSE, message=FALSE}
-
-# us_gdp <- geojsonio::geojson_read("gdp.topo.json", what = "sp")
-
-# Read combined statistical areas: https://www.census.gov/geo/maps-data/data/cbf/cbf_msa.html
-# cbsa <- combined_statistical_areas(cb = FALSE, resolution = "5m", year = 2017)
-
+``` {r loading_shapefile, echo=FALSE, message=FALSE}
 # states shapefile
 states <- states(cb = FALSE, resolution = "5m", year = 2017)
+```
 
+``` {r data_wrangling, echo=FALSE, message=FALSE}
 # state gdp (Bureau of Economic Advisors: https://www.bea.gov/regional/downloadzip.cfm)
 state_gdp <- read_csv('QGSP_ALL_R.csv') %>% 
-                filter(IndustryId == 1) %>%
+                # filter for only all industries and actual states only (Not DC)
+                filter(IndustryId == 1, GeoFIPS != '00000', GeoFIPS != '11000', GeoFIPS < 57) %>%
                 # getting a column to join on
                 mutate('id' = as.integer(GeoFIPS)/1000)
 
-# convert Quarterly data to numeric
+population <- read_csv('nst-est2016-alldata.csv') 
+state_gdp <- dplyr::left_join(state_gdp, population, by = c("id"= "STATE"))
+
+# convert quarterly data to numeric
 state_gdp[, grepl( "Q" , names( state_gdp ) ) ] <- state_gdp[, grepl( "Q" , names( state_gdp ) ) ] %>%
                 lapply(function(x) as.numeric(as.character(x)))
-```
 
+# rename columns so R doesn't throw errors
+colnames(state_gdp)[grepl( "Q" , names(state_gdp))] <- paste0("D_",colnames(state_gdp)[grepl( "Q" , names( state_gdp))])
 
-``` {r map_shapefile}
-# plot the shapes to ensure we have them
-leaflet(states) %>%
-  addTiles() %>%
-  addPolygons() %>%
-  setMapWidgetStyle()
-```
+# fortify to convert into a dataframe, trim by contiguous US
+top = 49.3457868 # north lat
+left = -124.7844079 # west long
+right = -66.9513812 # east long
+bottom =  24.7433195 # south lat
 
-``` {r data_wrangling}
-# fortify to convert into a dataframe
 state_map <- fortify(states, region="STATEFP") %>%
               # make id column numeric in order to join
-              mutate(id = as.integer(id))
+              mutate(id = as.integer(id)) %>%
+              filter(right >= long & long >= left, top >= lat & lat >= bottom)
+
+states@data$STATEFP <- as.integer(states@data$STATEFP)
+state_map <- dplyr::left_join(state_map, states@data, by = c("id"= "STATEFP"))
+
 # join "thematic" data
 gdpDF <- dplyr::left_join(state_map, state_gdp, by = c("id"))
-
 
 #chartogram wrangle
 sf_NPR1to1 <- mutate(sf_NPR1to1, FID = as.integer(FID))
 sf_USGDP <- dplyr::left_join(sf_NPR1to1, state_gdp, by = c("FID"="id"))
 sf_USGDP.centers <- sf_NPR1to1.centers
-sf_USGDP$'2016Q1' <- as.numeric(sf_USGDP$'2016Q1')
-
 ```
+## Charts 1: ggPlot of GDP
+Let's examine a recent GDP figure. In terms of magnitudes it is no surprise, mostly tied to the population of the state.
 
 ```{r gg_rgdp}
-# plotting
-# ggplot(gdpDF, aes(long,lat, group=id, fill= '2016Q1')) + geom_polygon()
 
-ggplot(state_gdp, aes(map_id=id,fill='2016Q1')) +
+ggplot(state_gdp, aes(map_id=id,fill= D_2016Q1)) +
   geom_map(map=state_map, color='#ffffff', size=0.1) +
   expand_limits(x=state_map$long,y=state_map$lat) +
-  theme_map()
+  scale_fill_colormap('GDP per Capita', discrete = F, colormap = colormaps$viridis, reverse = T)+
+  theme_map_mark() +
+  labs(title="California Contributes the Most to GDP",
+             subtitle="Real Dollars 2016Q - 148 states",
+             caption="source: Bureau of Economic Advisors")
 ```
 
+## Chart 2: Per Person
+But we're looking at potential GDP, so perhaps a naive way to see this is via GDP per Capita. Maybe the story will be different? 
+
+```{r gg_rgdp_weighted}
+
+ggplot(state_gdp, aes(map_id=id,fill= D_2016Q1/CENSUS2010POP)) +
+  geom_map(map=state_map, color='#ffffff', size=0.1) +
+  expand_limits(x=state_map$long,y=state_map$lat) +
+  scale_fill_colormap('GDP per Person', discrete = F, colormap = colormaps$viridis, reverse = T)+
+  theme_map_mark() +
+  labs(title="Productivity isn't Only in Populous States",
+             subtitle="Real Dollars per person 2016Q1 - 48 states",
+             caption="source: Bureau of Economic Advisors")
+```
+
+## Chart 3: Interactive GDP per Person
+Let's have another look at the GDP per Person in the contiguous 48, but this time, abstracting away the shape.
 
 ``` {r chartogram_rdgp}
-qpal <- colorBin("Blues", domain = sf_USGDP$'2016Q1', bins = 8)
+# via tilegramsR
+sf_USGDP$VALUE <- sf_USGDP$D_2016Q1/sf_USGDP$CENSUS2010POP
+qpal <- colorBin("Greens", domain = sf_USGDP$VALUE, bins = 4)
 
 labels <- sprintf(
-  "<strong>%s</strong><br/>%g dollars",
-  sf_USGDP$state, sf_USGDP$'2016Q1'
+  "<strong>%s</strong><br/>%g dollars per person",
+  sf_USGDP$GeoName, sf_USGDP$VALUE 
 ) %>% lapply(htmltools::HTML)
 
 leaflet(
   sf_USGDP,
-  options= getLeafletOptions(-1.5, -1.5)) %>%
+  options= getLeafletOptions(-1.5, -1.5), width = "100%" )%>%
   addPolygons(
     weight=2,
-    fillColor= ~qpal('2016Q1'),
+    fillColor= ~qpal(VALUE),
     group = 'states',
     fillOpacity = 0.6, opacity = 1, color="#666666",
     highlightOptions = highlightOptions(weight = 4),
@@ -138,63 +138,10 @@ leaflet(
       style = list("font-weight" = "normal", padding = "3px 8px"),
       textsize = "15px",
       direction = "auto")) %>%
-  addLegend(pal = qpal, values = ~'2016Q1', opacity = 0.7, title = NULL,
+  addLegend(title="GDP ($) per Person", pal = qpal, values = ~'2016Q1', opacity = 0.7,
     position = "bottomright")%>%
   addLabelOnlyMarkers(
     data=sf_USGDP.centers,
-    label = ~as.character(state),
-    labelOptions = labelOptions(
-    noHide = 'T', textOnly = T,
-    offset=c(-4,-10), textsize = '12px')) %>%
-  setMapWidgetStyle()
-```
-
-
-``` {r leaflet_rgdp}
-ggplot(state_map) +
-  geom_sf(aes()) +
-  scale_fill_viridis() +
-  ggtitle("Area of States")
-```
-
-## EXAMPLES
-``` {r demo}
-# From http://leafletjs.com/examples/choropleth/us-states.js
-qpal <- colorQuantile("Blues", domain = state_gdp$'2016Q1', n = 7)
-
-leaflet(states) %>%
-  setView(-96, 37.8, 4) %>%
-  addPolygons(
-    color = ~qpal('2016Q1'),
-    opacity = 1,
-    dashArray = "3",
-    fillOpacity = 0.7,
-    smoothFactor = 0.2,
-    highlight = highlightOptions(
-      weight = 5,
-      color = "#666",
-      dashArray = "",
-      fillOpacity = 0.7,
-      bringToFront = TRUE),
-    label = labels,
-    labelOptions = labelOptions(
-      style = list("font-weight" = "normal", padding = "3px 8px"),
-      textsize = "15px",
-      direction = "auto")) %>%
-  addLegend(pal = qpal, values = ~'2016Q1', opacity = 0.7, title = NULL,
-    position = "bottomright")
-```
-
-``` {r chartogram_demo}
-leaflet(
-  sf_NPR1to1,
-  options= getLeafletOptions(-1.5, -1.5)) %>%
-  addPolygons(
-    weight=2,color='#000000', group = 'states',
-    fillOpacity = 0.6, opacity = 1, fillColor= ~getFactorPal(state)(state),
-    highlightOptions = highlightOptions(weight = 4)) %>%
-  addLabelOnlyMarkers(
-    data=sf_NPR1to1.centers,
     label = ~as.character(state),
     labelOptions = labelOptions(
     noHide = 'T', textOnly = T,
