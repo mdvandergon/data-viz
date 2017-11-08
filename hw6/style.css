@@ -1,1 +1,6 @@
 /*Custom Styles*/
+svg {background-color: #f0f0f0;}
+.bar {
+  stroke: #DDD666;
+  fill: #888888;
+}
