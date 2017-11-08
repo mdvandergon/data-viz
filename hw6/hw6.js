@@ -10,7 +10,6 @@ var svg = d3.select('#chart').append('svg')
     .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
 // Data and Parse Functions
-var parseDate = d3.timeParse("%Y-%m-%d");
 var datafile = 'dataset.json';
 
 // Load and Plot
@@ -19,44 +18,50 @@ d3.json(datafile, function(error, data) {
 
     // Wrangle
     data.forEach(function(d) {
-        d.date = parseDate(d.date);
-        d.percent_diff = +d.percent_diff;
+        d.recession = d.recession;
+        d.avg_perc_diff = +d.avg_perc_diff;
     });
 
     // X Scale
-    var xScale = d3.scaleLinear()
-        .domain(d3.extent(data, function(d) { return d.unemployment; }))
-        .range([0, 450]);
+    var xScale = d3.scaleOrdinal()
+    	.domain(data)
+    	.range(['black', '#ccc']);
     svg.append('g')
-        .attr('transform', 'translate(0,' + height + ')')
-        .call(d3.axisBottom(xScale));
+        // reverse, so no transform and axisTop
+        // .attr('transform', 'translate(0,' + height + ')')
+        .call(d3.axisTop(xScale));
 
     // Y Scale
     var yScale = d3.scaleLinear()
-        .domain([d3.min(data, function(d){ return d.inflation }),
-            d3.max(data, function(d){ return d.inflation})])
-            .range([450, 0]);
+        .domain([d3.max(data, function(d){ return d.avg_perc_diff }),
+            d3.min(data, function(d){ return d.avg_perc_diff })])
+            .range([height, 0]);
     svg.append('g')
-        .attr('transform', 'translate(' + 30 + ',' + 30 + ')')
         .call(d3.axisLeft(yScale));
 
+    // Title and legend
+    svg.append()
+
+    svg.append()
     // Plot
     svg.selectAll('.bar')
         .data(data)
         .enter()
         .append('rect')
         .attr('class', 'bar')
-        .attr('x', function(d) { return x(d.date); })
+        .attr('x', function(d) { return x(d.recession); })
         .attr('y', 0)
         .attr('width', 0)
-        .attr('height', function(d) { return height - YYY; })
+        .attr('height', function(d) { return height - d.avg_perc_diff; })
         .attr('rx', 2)
         .attr('ry', 2)
-        .style("fill", function(d) {
-            var post_GR
-            if (d.date > parseDate("2007-01-01")) { clr = "#ec008b"}
-            return post_GR
+        .style('fill', function(d) { xScale(d) })
+        .style('fill', function(d) {
+            var gr
+            if (d.recession == "12/1/07") { gr = "#ec008b"}
+            return gr
         });
+
 });
 
 
