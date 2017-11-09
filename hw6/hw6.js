@@ -1,82 +1,120 @@
 //   Base chart space
-var margin = {top: 20, right: 10, bottom: 20, left: 10},
-width = 960 - margin.left - margin.right,
-height = 500 - margin.top - margin.bottom;
+var margin = {top: 150, right: 30, bottom: 30, left: 80},
+width = 900 - margin.left - margin.right,
+height = 600 - margin.top - margin.bottom;
 
-var svg = d3.select('#chart').append('svg')
+var chart = d3.select('#chart').append('svg')
     .attr('width', width + margin.left + margin.right)
     .attr('height', height + margin.top + margin.bottom)
-    .append('g')
+var g = chart.append('g')
     .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
 // Data and Parse Functions
 var datafile = 'dataset.json';
 
 // Load and Plot
-d3.json(datafile, function(error, data) {
-    if (error) throw error;
-
-    // Wrangle
-    data.forEach(function(d) {
-        d.recession = d.recession;
-        d.avg_perc_diff = +d.avg_perc_diff;
-    });
-
-    // X Scale
-    var xScale = d3.scaleOrdinal()
-    	.domain(data)
-    	.range(['black', '#ccc']);
-    svg.append('g')
-        // reverse, so no transform and axisTop
-        // .attr('transform', 'translate(0,' + height + ')')
-        .call(d3.axisTop(xScale));
-
-    // Y Scale
-    var yScale = d3.scaleLinear()
-        .domain([d3.max(data, function(d){ return d.avg_perc_diff }),
-            d3.min(data, function(d){ return d.avg_perc_diff })])
-            .range([height, 0]);
-    svg.append('g')
-        .call(d3.axisLeft(yScale));
-
-    // Title and legend
-    svg.append()
-
-    svg.append()
-    // Plot
-    svg.selectAll('.bar')
-        .data(data)
-        .enter()
-        .append('rect')
-        .attr('class', 'bar')
-        .attr('x', function(d) { return x(d.recession); })
-        .attr('y', 0)
-        .attr('width', 0)
-        .attr('height', function(d) { return height - d.avg_perc_diff; })
-        .attr('rx', 2)
-        .attr('ry', 2)
-        .style('fill', function(d) { xScale(d) })
-        .style('fill', function(d) {
-            var gr
-            if (d.recession == "12/1/07") { gr = "#ec008b"}
-            return gr
+d3.json(datafile,
+    function(error, data) {
+        if (error) throw error;
+        // Wrangle
+        data.forEach(function(d){
+            d.avg_perc_diff = +d.avg_perc_diff;
+        });
+        data.sort(function(a, b) {
+            return d3.ascending(a.avg_perc_diff, b.avg_perc_diff);
         });
 
+        // X Scale
+        var xScale = d3.scaleBand()
+            .domain(data.map(function(d){ return d.recession; }))
+            .range([0, width])
+            .padding(0.1);
+        // reverse, so no transform and axisTop
+        // .attr('transform', 'translate(0,' + height + ')')
+        g.append('g')
+            .call(d3.axisTop(xScale))
+            .append('text')
+            .attr('class', 'axis')
+            .text("Recessions")
+            .attr("transform", "translate("+ width/2 + "," + -40 + ")rotate(0)");
+
+        // Y Scale
+        var yScale = d3.scaleLinear()
+            .domain([d3.max(data, function(d){ return d.avg_perc_diff }),
+                d3.min(data, function(d){ return d.avg_perc_diff })])
+                .range([height, 0]);
+        g.append('g')
+            .call(d3.axisLeft(yScale))
+            .append('text')
+            .attr('class', 'axis')
+            .text("% Difference Between the Taylor Rate and Fed Funds Rate")
+            .attr("transform", "translate(" + -margin.left/2
+                    + "," + 50
+                    + ")rotate(-90)");
+
+        // Title
+        chart.append('text')
+            .attr('x', margin.left)
+            .attr('y', margin.top/3)
+            .attr('font-size', '18px')
+            .text("During the Great Recession the Taylor Rule Stopped Tracking");
+
+        chart.append('text')
+            .text("recessions sorted by percent error")
+            .attr('x', margin.left)
+            .attr('y', margin.top/2)
+            .attr('font-size', '14px');
+
+        // Legend
+        legend_x = 100
+        legend_y = 100
+        dim = 20
+        padding = 10
+        var legend = g.append('g')
+
+        legend.append('rect')
+                .attr('x', legend_x)
+                .attr('y', legend_y)
+                .attr('width', dim)
+                .attr('height', dim)
+                .attr('rx', 2)
+                .attr('ry', 2)
+                .style('fill', '#2F74FF')
+        legend.append('text')
+            .text("Before Great Recession")
+            .attr('x', legend_x + dim + padding)
+            .attr('y', legend_y + dim -2)
+            .attr('font-size', '14px')
+        legend.append('rect')
+            .attr('x', legend_x)
+            .attr('y', legend_y + dim + padding)
+            .attr('width', dim)
+            .attr('height', dim)
+            .attr('rx', 0)
+            .attr('ry', 0)
+            .style('fill', '#FF6548')
+        legend.append('text')
+            .text("Great Recession")
+            .attr('x', legend_x + dim+ padding)
+            .attr('y', legend_y + dim*2 + padding-2)
+            .attr('font-size', '14px')
+
+        // Plot
+        g.selectAll('bar')
+            .data(data)
+            .enter()
+            .append('rect')
+            .attr('class', 'bar')
+            .attr('x', function(d) { return xScale(d.recession); })
+            .attr('y', 1)
+            .attr('width', xScale.bandwidth())
+            .attr('height', function(d) { return yScale(d.avg_perc_diff); })
+            .attr('rx', 2)
+            .attr('ry', 2)
+            .text(function(d) {return d.avg_perc_diff;})
+            .style('fill', function(d) {
+                var gr
+                if (d.recession == "12/1/07") { gr = "#FF6548"}
+                return gr
+            });
 });
-
-
-/*
-Read the JSON data into D3 using D3.json;
-Implement simple error handling to log an error to the console if it occurs reading in the data.
-Use the unary plus operator to ensure the quantitative variable is read in correctly;
-
-^^^^^^^ DONE ^^^^^^^
-Create a Negative Bar Chart
-A negative bar chart will have bars starting at 0 close to the top of the web page, and extending downwards. So the y-axis should similarly start at 0 near the top of the webpage, and increase towards the maximum value lower down on the page. Think of it as a bar chart flipped upside down.
-Use D3's sort method (Links to an external site.)Links to an external site. to sort the data in an order of your preference, as long as it is different from how the data is read into D3.
-Create an appropriate linear scale and axis for the continuous y variable;
-Create an appropriate ordinal scale (Links to an external site.)Links to an external site. and axis for the categorical x variable;
-Use d3 to apply a CSS class to bars that meet some criteria (e.g. they exceed a certain value, or are a certain category). Use CSS to change the color of bars with that class;
-Use d3.append to add two SVG rect elements and two SVG text elements as a legend for the change in color;
-Use d3.append to add SVG text elements for the graph title, subtitle, and axis labels.
-*/

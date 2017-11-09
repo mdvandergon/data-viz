@@ -1,6 +1,27 @@
 /*Custom Styles*/
-svg {background-color: #f0f0f0;}
+body {
+  background-color: #efefef;
+}
+svg {
+  background-color: #ffffff;
+  border: 1px solid #f0f0f0;
+  border-radius: 2px;
+}
+text {
+  fill: #444444;
+  font-family: "Menlo", monospace;
+}
 .bar {
-  stroke: #DDD666;
-  fill: #888888;
+  fill: #2F74FF;
+}
+
+.axis path,
+.axis line {
+	fill: none;
+	stroke: black;
+	shape-rendering: crispEdges;
+}
+.axis text {
+	font-family: sans-serif;
+	font-size: 11px;
 }
