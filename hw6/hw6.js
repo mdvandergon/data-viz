@@ -1,7 +1,7 @@
 //   Base chart space
 var margin = {top: 150, right: 30, bottom: 30, left: 80},
-width = 900 - margin.left - margin.right,
-height = 600 - margin.top - margin.bottom;
+width = $('.container').width() - margin.left - margin.right,
+height = $(document).height() * .75 - margin.top - margin.bottom;
 
 var chart = d3.select('#chart').append('svg')
     .attr('width', width + margin.left + margin.right)
@@ -57,13 +57,13 @@ d3.json(datafile,
         // Title
         chart.append('text')
             .text("Around the Great Recession the Taylor Rule Stopped Tracking")
-            .attr('x', margin.left)
+            .attr('x', margin.left/2)
             .attr('y', margin.top/3)
             .attr('font-size', '18px');
 
         chart.append('text')
             .text("recessions sorted by percent error")
-            .attr('x', margin.left)
+            .attr('x', margin.left/2)
             .attr('y', margin.top/2)
             .attr('font-size', '14px');
 
