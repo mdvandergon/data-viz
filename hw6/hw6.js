@@ -49,9 +49,9 @@ d3.json(datafile,
             .append('text')
             .attr("text-anchor", "right")
             .attr('class', 'axis')
-            .text("% Difference Between the Taylor Rate and Fed Funds Rate")
+            .text("% Difference")
             .attr("transform", "translate(" + -margin.left/2
-                    + "," + 10
+                    + "," + margin.top
                     + ")rotate(-90)");
 
         // Title
@@ -62,7 +62,7 @@ d3.json(datafile,
             .attr('font-size', '18px');
 
         chart.append('text')
-            .text("recessions sorted by percent error")
+            .text("recessions sorted by percent error between rates")
             .attr('x', margin.left/2)
             .attr('y', margin.top/2)
             .attr('font-size', '14px');
