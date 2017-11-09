@@ -29,14 +29,15 @@ d3.json(datafile,
             .domain(data.map(function(d){ return d.recession; }))
             .range([0, width])
             .padding(0.1);
-        // reverse, so no transform and axisTop
-        // .attr('transform', 'translate(0,' + height + ')')
+
         g.append('g')
+            // reverse, so no transform and axisTop
             .call(d3.axisTop(xScale))
             .append('text')
+            .attr("text-anchor", "middle")
             .attr('class', 'axis')
             .text("Recessions")
-            .attr("transform", "translate("+ width/2 + "," + -40 + ")rotate(0)");
+            .attr("transform", "translate("+ width/2 + "," + (-margin.top/4) + ")rotate(0)");
 
         // Y Scale
         var yScale = d3.scaleLinear()
@@ -46,18 +47,19 @@ d3.json(datafile,
         g.append('g')
             .call(d3.axisLeft(yScale))
             .append('text')
+            .attr("text-anchor", "right")
             .attr('class', 'axis')
             .text("% Difference Between the Taylor Rate and Fed Funds Rate")
             .attr("transform", "translate(" + -margin.left/2
-                    + "," + 50
+                    + "," + 10
                     + ")rotate(-90)");
 
         // Title
         chart.append('text')
+            .text("Around the Great Recession the Taylor Rule Stopped Tracking")
             .attr('x', margin.left)
             .attr('y', margin.top/3)
-            .attr('font-size', '18px')
-            .text("During the Great Recession the Taylor Rule Stopped Tracking");
+            .attr('font-size', '18px');
 
         chart.append('text')
             .text("recessions sorted by percent error")
