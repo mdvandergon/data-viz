@@ -59,13 +59,13 @@ d3.json(datafile,
             .text("Around the Great Recession the Taylor Rule Stopped Tracking")
             .attr('x', margin.left/2)
             .attr('y', margin.top/3)
-            .attr('font-size', '18px');
+            .attr('font-size', '17px');
 
         chart.append('text')
             .text("recessions sorted by percent error between rates")
             .attr('x', margin.left/2)
             .attr('y', margin.top/2)
-            .attr('font-size', '14px');
+            .attr('font-size', '12px');
 
         // Legend
         legend_x = 100
